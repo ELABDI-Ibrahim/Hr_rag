@@ -24,6 +24,7 @@ from typing import Dict, List, Optional
 import fitz  # PyMuPDF
 import mlflow
 import pytesseract
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from PIL import Image
 
 from config import MIN_TEXT_LENGTH, OCR_LANGUAGES
@@ -31,6 +32,24 @@ from config import MIN_TEXT_LENGTH, OCR_LANGUAGES
 logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTENSIONS = {".pdf", ".md", ".markdown"}
+
+# ─── Chunking Configuration ───────────────────────────────────────────────────
+# Estimate: ~500 tokens is roughly 2000 characters. 100 tokens overlap is ~400 characters.
+CHUNK_SIZE_CHARS = 2000
+CHUNK_OVERLAP_CHARS = 400
+
+# LangChain Text Splitter (Singleton)
+_text_splitter = None
+
+def _get_text_splitter() -> RecursiveCharacterTextSplitter:
+    global _text_splitter
+    if _text_splitter is None:
+        _text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=CHUNK_SIZE_CHARS,
+            chunk_overlap=CHUNK_OVERLAP_CHARS,
+            separators=["\n\n", "\n", ".", " ", ""],
+        )
+    return _text_splitter
 
 
 # ─── PDF ──────────────────────────────────────────────────────────────────────
@@ -63,6 +82,24 @@ def _extract_page_text(page: fitz.Page, page_num: int, file_name: str) -> str:
     return text
 
 
+def _process_text_into_chunks(text: str, page_num: int) -> List[Dict]:
+    """
+    If the text exceeds the chunk limit (~2000 chars), split it into overlapping chunks.
+    Otherwise, maintain it as a single intact page chunk.
+    """
+    chunks = []
+    if len(text) <= CHUNK_SIZE_CHARS:
+        chunks.append({"page_num": page_num, "text": text})
+    else:
+        splitter = _get_text_splitter()
+        split_texts = splitter.split_text(text)
+        # For chunked pages, we keep the original page number.
+        # The retrieval pipeline will treat them as independent candidates.
+        for i, chunk_text in enumerate(split_texts):
+            chunks.append({"page_num": page_num, "text": chunk_text})
+    return chunks
+
+
 def _load_pdf(file_path: str) -> List[Dict]:
     """Extract text from every page of a PDF. Returns list of {page_num, text}."""
     pages = []
@@ -73,7 +110,8 @@ def _load_pdf(file_path: str) -> List[Dict]:
             page_num = page_index + 1
             text = _extract_page_text(page, page_num, file_name)
             if text:
-                pages.append({"page_num": page_num, "text": text})
+                chunks = _process_text_into_chunks(text, page_num)
+                pages.extend(chunks)
         doc.close()
     except Exception as e:
         logger.error(f"Failed to open PDF {file_path}: {e}")
@@ -106,7 +144,9 @@ def _load_markdown(file_path: str) -> List[Dict]:
     for i, part in enumerate(parts):
         text = part.strip()
         if text:
-            pages.append({"page_num": i + 1, "text": text})
+            page_num = i + 1
+            chunks = _process_text_into_chunks(text, page_num)
+            pages.extend(chunks)
 
     if not pages:
         logger.warning(f"No text extracted from {Path(file_path).name}")

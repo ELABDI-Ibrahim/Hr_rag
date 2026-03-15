@@ -81,10 +81,11 @@ _KEYWORD_PROMPT = ChatPromptTemplate.from_messages([
     ),
     (
         "human",
-        "Liste 12 à 15 mots-clés ou expressions typiques que l'on trouve dans un document "
+        "Liste 20 à 30 mots-clés, expressions typiques, ET synonymes que l'on trouve dans un document "
         "de type '{doc_fr}' (en anglais : '{doc_en}'). "
-        "Ces mots-clés seront utilisés pour rechercher ce document dans des fichiers texte. "
-        "Inclure : intitulés de sections, mentions légales, termes administratifs courants.",
+        "Ces mots-clés seront utilisés pour rechercher ce document dans des fichiers texte via BM25. "
+        "IMPORTANT : Tu dois inclure des synonymes directs du nom du document (ex: pour 'titre de séjour', inclure 'carte de séjour', 'permis de séjour', 'visa', etc.). "
+        "Inclure aussi : intitulés de sections, mentions légales, termes administratifs courants.",
     ),
 ])
 
@@ -117,7 +118,7 @@ def generate_french_keywords(doc_fr: str, doc_en: str) -> List[str]:
                 "doc_fr":        doc_fr,
                 "doc_en":        doc_en,
                 "keyword_count": len(keywords),
-                "keywords":      ", ".join(keywords[:10]),
+                "keywords":      ", ".join(keywords),
             })
         return keywords
     except Exception as e:

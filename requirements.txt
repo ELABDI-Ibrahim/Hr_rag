@@ -32,3 +32,7 @@ pydantic>=2.0.0
 
 # Tracing / Observability
 mlflow>=2.14.0
+
+# Tokenization & Chunking
+nltk>=3.8.0
+langchain-text-splitters>=0.3.0

@@ -38,6 +38,7 @@ import mlflow
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
+from nltk.tokenize import word_tokenize
 from rank_bm25 import BM25Okapi
 
 from config import (
@@ -112,8 +113,18 @@ def _build_metadata(page_dict: Dict) -> Dict:
         "source_file": page_dict.get("source_file", ""),
         "file_path":   file_path,
         "page_num":    page_dict.get("page_num", 0),
-        "file_ext":    Path(file_path).suffix.lower() if file_path else "",
+        "file_ext":    str(Path(file_path).suffix).lower() if file_path else "",
     }
+
+
+def _tokenize_text(text: str) -> List[str]:
+    """
+    Robust NLTK word tokenization. Ensures the same tokenization is
+    applied to both documents and the query for BM25 scoring.
+    """
+    # Using lowercase and word_tokenize handles punctuation and mixed languages better
+    # than simple whitespace splitting.
+    return [t for t in word_tokenize(text.lower()) if t.isalnum()]
 
 
 # ─── Stage 1: BM25 Page Triage ───────────────────────────────────────────────
@@ -167,9 +178,12 @@ def bm25_page_triage(
     full_query   = f"{exigence} {keyword_str}".strip()
     query_tokens = full_query.lower().split()
 
-    # Tokenize each page (whitespace split — fast and sufficient)
-    tokenized_pages = [p["text"].lower().split() for p in all_pages]
+    # Tokenize each page consistently
+    tokenized_pages = [_tokenize_text(p["text"]) for p in all_pages]
     bm25 = BM25Okapi(tokenized_pages)
+    
+    # Tokenize the query identically
+    query_tokens = _tokenize_text(full_query)
     scores = bm25.get_scores(query_tokens)
 
     # Sort descending, keep only positive scores, respect top_k limit

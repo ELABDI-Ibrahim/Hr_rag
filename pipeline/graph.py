@@ -64,26 +64,23 @@ class PipelineState(TypedDict):
 
 # ─── Node Functions ───────────────────────────────────────────────────────────
 
+# ─── Query Expansion ────────────────────────────────────────────────────────────
+
 def keyword_suggestion_node(state: PipelineState) -> Dict[str, Any]:
     """
     Node 1 — French Keyword Suggestion.
 
-    Calls the LLM to generate a list of French keywords typical of the
-    document type being searched. These keywords are passed downstream to:
-      - Node 2 (BM25): enriches the lexical query for better page recall.
-      - Node 4 (Verdict): informs the LLM what to look for in the text.
-
-    Future enhancement: replace or augment with TF-IDF / data-mining on a
-    reference corpus of known document examples.
+    Calls the LLM to generate a list of French keywords and synonyms typical of the
+    document type being searched.
     """
-    logger.info(f"[Node 1 / Keywords] Generating French keywords for: '{state['doc_fr']}'")
+    logger.info(f"[Node 1 / Keywords] Generating French keywords and synonyms for: '{state['doc_fr']}'")
 
     keywords = generate_french_keywords(
         doc_fr=state["doc_fr"],
         doc_en=state["doc_en"],
     )
 
-    logger.info(f"[Node 1 / Keywords] Generated {len(keywords)} keyword(s)")
+    logger.info(f"[Node 1 / Keywords] Generated {len(keywords)} keyword(s) / synonym(s)")
     return {"french_keywords": keywords}
 
 
