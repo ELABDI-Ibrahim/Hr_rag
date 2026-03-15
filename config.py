@@ -39,6 +39,12 @@ CHROMA_COLLECTION_NAME: str = os.getenv("CHROMA_COLLECTION_NAME", "compliance_pa
 # When True, ChromaDB similarity search is restricted to BM25-shortlisted pages only
 RESTRICT_SEARCH_TO_CANDIDATE_PAGES: bool = os.getenv("RESTRICT_SEARCH_TO_CANDIDATE_PAGES", "true").lower() == "true"
 
+# ─── MLflow ───────────────────────────────────────────────────────────────────
+# URI for the MLflow tracking server (empty = local sqlite:///mlflow.db database)
+MLFLOW_TRACKING_URI: str = os.getenv("MLFLOW_TRACKING_URI", "")
+# Experiment name that groups all pipeline runs together
+MLFLOW_EXPERIMENT_NAME: str = os.getenv("MLFLOW_EXPERIMENT_NAME", "compliance_rag")
+
 
 def validate_config() -> None:
     """Raise early if critical config is missing."""

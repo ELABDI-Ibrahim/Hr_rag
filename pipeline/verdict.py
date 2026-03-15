@@ -19,6 +19,7 @@ Output schema (DocumentVerdict):
 import logging
 from typing import Dict, List, Literal, Optional
 
+import mlflow
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from pydantic import BaseModel, Field
@@ -88,6 +89,7 @@ _KEYWORD_PROMPT = ChatPromptTemplate.from_messages([
 ])
 
 
+@mlflow.trace(name="generate_french_keywords", span_type="LLM")
 def generate_french_keywords(doc_fr: str, doc_en: str) -> List[str]:
     """
     Ask the LLM to generate typical French keywords found in documents
@@ -109,6 +111,14 @@ def generate_french_keywords(doc_fr: str, doc_en: str) -> List[str]:
             f"[Keywords] Generated {len(keywords)} keyword(s) for '{doc_fr}': "
             f"{keywords[:5]}{'...' if len(keywords) > 5 else ''}"
         )
+        span = mlflow.get_current_active_span()
+        if span:
+            span.set_attributes({
+                "doc_fr":        doc_fr,
+                "doc_en":        doc_en,
+                "keyword_count": len(keywords),
+                "keywords":      ", ".join(keywords[:10]),
+            })
         return keywords
     except Exception as e:
         logger.warning(f"[Keywords] Keyword generation failed for '{doc_fr}': {e}")

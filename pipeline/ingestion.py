@@ -12,12 +12,17 @@ Each file is represented as:
         "pages":     [{"page_num": int, "text": str}, ...],
         "full_text": str,   ← concatenation of all pages, used for BM25 indexing
     }
+
+MLflow tracing:
+    load_proof_folder and load_file are decorated with @mlflow.trace so they
+    appear as custom spans nested inside each document's MLflow run.
 """
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import fitz  # PyMuPDF
+import mlflow
 import pytesseract
 from PIL import Image
 
@@ -94,7 +99,6 @@ def _load_markdown(file_path: str) -> List[Dict]:
         return []
 
     # Split on the page-end marker (keep content before each marker as one page)
-    # e.g.  "content page 1\n--- End of Page 1 ---\n\ncontent page 2\n--- End of Page 2 ---"
     import re
     parts = re.split(r"\n---\s*End of Page \d+\s*---\n*", raw)
 
@@ -112,10 +116,14 @@ def _load_markdown(file_path: str) -> List[Dict]:
 
 # ─── Public API ───────────────────────────────────────────────────────────────
 
+@mlflow.trace(name="load_file", span_type="LOADER")
 def load_file(file_path: str) -> Optional[Dict]:
     """
     Load a single PDF or Markdown file and return a document dict.
     Returns None if the file type is unsupported or extraction yields no text.
+
+    MLflow span attributes:
+        file_path, file_name, page_count, total_chars
     """
     path = Path(file_path)
     ext = path.suffix.lower()
@@ -133,18 +141,31 @@ def load_file(file_path: str) -> Optional[Dict]:
         return None
 
     full_text = "\n\n".join(p["text"] for p in pages)
+
+    # Log attributes visible in the MLflow span
+    mlflow.get_current_active_span().set_attributes({
+        "file_name":   path.name,
+        "file_ext":    ext,
+        "page_count":  len(pages),
+        "total_chars": len(full_text),
+    })
+
     return {
         "file_path": file_path,
         "file_name": path.name,
-        "pages": pages,
+        "pages":     pages,
         "full_text": full_text,
     }
 
 
+@mlflow.trace(name="load_proof_folder", span_type="LOADER")
 def load_proof_folder(folder_path: str) -> List[Dict]:
     """
     Recursively scan a folder for PDF and Markdown files, extract their text,
     and return a list of document dicts ready for BM25 indexing.
+
+    MLflow span attributes:
+        folder_path, files_found, files_loaded, total_pages
     """
     folder = Path(folder_path)
     if not folder.exists():
@@ -161,6 +182,14 @@ def load_proof_folder(folder_path: str) -> List[Dict]:
         if doc:
             corpus.append(doc)
             logger.info(f"  → {len(doc['pages'])} page(s), {len(doc['full_text'])} chars")
+
+    total_pages = sum(len(d["pages"]) for d in corpus)
+    mlflow.get_current_active_span().set_attributes({
+        "folder_path":   folder_path,
+        "files_found":   len(file_paths),
+        "files_loaded":  len(corpus),
+        "total_pages":   total_pages,
+    })
 
     logger.info(f"Corpus ready: {len(corpus)} document(s) loaded")
     return corpus

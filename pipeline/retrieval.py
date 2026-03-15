@@ -34,6 +34,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 import chromadb
+import mlflow
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -117,6 +118,7 @@ def _build_metadata(page_dict: Dict) -> Dict:
 
 # ─── Stage 1: BM25 Page Triage ───────────────────────────────────────────────
 
+@mlflow.trace(name="bm25_page_triage", span_type="RETRIEVER")
 def bm25_page_triage(
     exigence: str,
     file_corpus: List[Dict],
@@ -179,11 +181,22 @@ def bm25_page_triage(
         f"[query tokens: {len(query_tokens)}, "
         f"top scores: {[round(scores[i], 2) for i in sorted_indices[:3]]}]"
     )
+
+    span = mlflow.get_current_active_span()
+    if span:
+        span.set_attributes({
+            "total_pages":       len(all_pages),
+            "shortlisted_pages": len(candidates),
+            "query_token_count": len(query_tokens),
+            "keyword_count":     len(french_keywords) if french_keywords else 0,
+            "top_bm25_score":    round(float(scores[sorted_indices[0]]), 4) if len(sorted_indices) > 0 else 0.0,
+        })
     return candidates
 
 
 # ─── Stage 2: Semantic Page Search ───────────────────────────────────────────
 
+@mlflow.trace(name="_index_new_pages", span_type="RETRIEVER")
 def _index_new_pages(
     page_dicts: List[Dict],
     embeddings: HuggingFaceEmbeddings,
@@ -240,9 +253,19 @@ def _index_new_pages(
         )
         logger.info(f"Indexed {len(new_docs)} new page(s) into '{CHROMA_COLLECTION_NAME}'")
 
+    span = mlflow.get_current_active_span()
+    if span:
+        span.set_attributes({
+            "total_candidate_pages": len(all_ids),
+            "already_indexed":       already_count,
+            "newly_embedded":        len(new_docs),
+            "collection_name":       CHROMA_COLLECTION_NAME,
+        })
+
     return all_ids
 
 
+@mlflow.trace(name="semantic_page_search", span_type="RETRIEVER")
 def semantic_page_search(
     exigence: str,
     candidate_pages: List[Dict],
@@ -310,6 +333,15 @@ def semantic_page_search(
         }
         for doc in results
     ]
+
+    span = mlflow.get_current_active_span()
+    if span:
+        span.set_attributes({
+            "candidate_page_count":    len(candidate_pages),
+            "retrieved_page_count":    len(retrieved),
+            "restrict_to_candidates":  restrict_to_candidates,
+            "query":                   exigence[:200],
+        })
 
     logger.info(f"Semantic search: retrieved {len(retrieved)} page(s)")
     return retrieved

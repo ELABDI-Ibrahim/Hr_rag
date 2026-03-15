@@ -7,14 +7,30 @@ Usage:
 What it does:
     1. Loads all PDF and Markdown files from the candidate's proof folder (once)
     2. Reads the document checklist from the HR verification Excel
-    3. For each required document, runs the 3-stage LangGraph pipeline:
-           BM25 triage → semantic page search → LLM verdict
+    3. For each required document, runs the 4-stage LangGraph pipeline:
+           keyword_suggestion → BM25 triage → semantic page search → LLM verdict
     4. Writes the verdicts back into the Excel (Statut, Commentaires columns)
+
+MLflow Tracing:
+    - mlflow.langchain.autolog() auto-traces all LangChain/LangGraph calls
+    - Each document row runs inside its own mlflow.start_run() so you can
+      view per-document traces in the MLflow UI
+    - Run `mlflow ui --backend-store-uri sqlite:///mlflow.db` after
+      execution to explore traces
 """
 import logging
 import sys
 
-from config import EXCEL_INPUT, EXCEL_OUTPUT, PROOF_FOLDER, validate_config
+import mlflow
+
+from config import (
+    EXCEL_INPUT,
+    EXCEL_OUTPUT,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_TRACKING_URI,
+    PROOF_FOLDER,
+    validate_config,
+)
 from pipeline.graph import build_compliance_graph
 from pipeline.ingestion import load_proof_folder
 from utils.excel_handler import read_document_checklist, write_results
@@ -28,6 +44,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _setup_mlflow() -> None:
+    """Configure MLflow tracking and enable LangChain/LangGraph autologging."""
+    # Always set the URI from config so the .env value always wins.
+    # Defaults to sqlite (database backend — no server needed)
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI or "sqlite:///mlflow.db")
+
+    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
+
+    # Automatically trace all LangChain chains, LLM calls, and LangGraph nodes
+    mlflow.langchain.autolog()
+
+    logger.info(
+        f"MLflow tracing enabled → experiment: '{MLFLOW_EXPERIMENT_NAME}' "
+        f"tracking: '{mlflow.get_tracking_uri()}' "
+        f"(run `mlflow ui --backend-store-uri sqlite:///mlflow.db` to explore traces)"
+    )
+
+
 def main() -> None:
     logger.info("=" * 60)
     logger.info("  HR Document Verification — RAG Pipeline")
@@ -39,6 +73,9 @@ def main() -> None:
     except ValueError as e:
         logger.error(str(e))
         sys.exit(1)
+
+    # ── 0b. Configure MLflow (one-time setup) ────────────────────────────────
+    _setup_mlflow()
 
     # ── 1. Load candidate documents (expensive step — done only once) ────────
     logger.info(f"\n[Step 1] Loading candidate documents from: {PROOF_FOLDER}")
@@ -58,8 +95,8 @@ def main() -> None:
         logger.error("No document requirements found. Check the Excel file path and format.")
         sys.exit(1)
 
-    required_count  = sum(1 for r in checklist if r["is_required"])
-    optional_count  = len(checklist) - required_count
+    required_count = sum(1 for r in checklist if r["is_required"])
+    optional_count = len(checklist) - required_count
     logger.info(f"Found {len(checklist)} document(s): {required_count} required, {optional_count} optional\n")
 
     # ── 3. Build the LangGraph pipeline (compiled once, reused per row) ──────
@@ -67,7 +104,7 @@ def main() -> None:
     graph = build_compliance_graph()
     logger.info("Pipeline ready\n")
 
-    # ── 4. Run the pipeline for each document in the checklist ───────────────
+    # ── 4. Run the pipeline — one MLflow run per document row ────────────────
     logger.info(f"[Step 4] Verifying {len(checklist)} document(s)...\n")
     results = []
 
@@ -87,12 +124,31 @@ def main() -> None:
             "verdict":         {},
         }
 
-        final_state = graph.invoke(initial_state)
+        # ── Each document gets its own MLflow run ────────────────────────────
+        run_name = f"{row['doc_fr']} ({'required' if row['is_required'] else 'optional'})"
+        with mlflow.start_run(run_name=run_name):
+            # Log input tags so runs are easy to filter in the UI
+            mlflow.set_tags({
+                "doc_fr":      row["doc_fr"],
+                "doc_en":      row["doc_en"],
+                "is_required": str(row["is_required"]),
+            })
+
+            final_state = graph.invoke(initial_state)
+            verdict = final_state["verdict"]
+
+            # Log outcome tags for quick scanning in the Runs table
+            mlflow.set_tags({
+                "satisfied":  str(verdict.get("satisfied", False)),
+                "confidence": verdict.get("confidence", "unknown"),
+            })
+            mlflow.log_param("doc_fr", row["doc_fr"])
+            mlflow.log_metric("satisfied", int(verdict.get("satisfied", False)))
 
         results.append({
             "doc_fr":      row["doc_fr"],
             "is_required": row["is_required"],
-            "verdict":     final_state["verdict"],
+            "verdict":     verdict,
         })
 
     # ── 5. Write results back into the HR Excel ───────────────────────────────
