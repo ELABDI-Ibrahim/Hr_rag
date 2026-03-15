@@ -4,3 +4,27 @@ AI said the same point : Future enhancement (noted by user): keywords could also
 First embed the whole document because you might have context in the closest pages (And then see if this page stuff will give better results)
 
 For the symantic search why not keep all documents that are already embedded and not only the ones shortlisted or find a way to use both at once sinse the emebedding is the highest cost part
+
+"""
+Use a spellchecker to correct OCR mistakes:
+
+from spellchecker import SpellChecker
+
+spell = SpellChecker(language='fr')
+
+def correct_text(text: str) -> str:
+    words = text.split()
+    corrected = [spell.correction(w) or w for w in words]
+    return " ".join(corrected)
+
+Can fix mistakes like sejour → séjour
+
+Works best after the previous normalization
+
+https://pypi.org/project/OCRfixr
+"""
+
+
+
+Analyse the data to have a rough idea of how many pdf or text files per project
+The point is to focus on long documents first

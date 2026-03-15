@@ -186,7 +186,7 @@ def bm25_page_triage(
     query_tokens = _tokenize_text(full_query)
     scores = bm25.get_scores(query_tokens)
 
-    # Sort descending, keep only positive scores, respect top_k limit
+    # Sort descending, keep only positive scores, respect top_k limit (Check if this needed)
     sorted_indices = scores.argsort()[::-1][:top_k]
     candidates = [all_pages[i] for i in sorted_indices if scores[i] > 0]
 

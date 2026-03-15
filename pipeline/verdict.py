@@ -28,8 +28,7 @@ from config import GROQ_API_KEY, GROQ_MODEL
 
 logger = logging.getLogger(__name__)
 
-# Maximum characters taken from each retrieved page to avoid token overflow
-MAX_CHARS_PER_PAGE = 1500
+
 
 
 # ─── Output Schema ────────────────────────────────────────────────────────────
@@ -169,13 +168,9 @@ def _format_context(retrieved_pages: List[Dict]) -> str:
 
     blocks = []
     for i, page in enumerate(retrieved_pages, 1):
-        text_preview = page["text"][:MAX_CHARS_PER_PAGE]
-        if len(page["text"]) > MAX_CHARS_PER_PAGE:
-            text_preview += "... [tronqué / truncated]"
-
         blocks.append(
             f"[Extrait {i}] Fichier : {page['source_file']} | Page : {page['page_num']}\n"
-            f"{text_preview}"
+            f"{page['text']}"
         )
 
     return "\n\n" + ("\n\n" + "─" * 60 + "\n\n").join(blocks)
