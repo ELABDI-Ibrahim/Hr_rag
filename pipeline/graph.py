@@ -6,7 +6,6 @@ Graph flow for ONE required document:
     START
       │
       ▼
-<<<<<<< HEAD
   keyword_suggestion   Node 1: LLM generates French keywords for the document type
       │
       ▼
@@ -18,15 +17,6 @@ Graph flow for ONE required document:
       ▼
   verdict              Node 4: LLM checks whether retrieved pages contain the document
                                (receives keywords as additional context)
-=======
-  bm25_triage          Stage 1: BM25 lexical search → shortlist top-K files
-      │
-      ▼
-  semantic_search      Stage 2: embed shortlisted pages → retrieve top-M by similarity
-      │
-      ▼
-  verdict              Stage 3: LLM checks whether retrieved pages contain the document
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
       │
       ▼
     END
@@ -41,13 +31,8 @@ from langgraph.graph import END, StateGraph
 from typing_extensions import TypedDict
 
 from config import BM25_TOP_K, SEMANTIC_TOP_M
-<<<<<<< HEAD
 from pipeline.retrieval import bm25_page_triage, semantic_page_search
 from pipeline.verdict import generate_french_keywords, run_verdict
-=======
-from pipeline.retrieval import bm25_file_triage, semantic_page_search
-from pipeline.verdict import run_verdict
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +45,6 @@ class PipelineState(TypedDict):
     Fields are populated progressively as the graph executes.
     """
     # ── Inputs (set before invoking the graph) ────────────────────────────────
-<<<<<<< HEAD
     doc_fr:      str         # Document name in French  (query + LLM context)
     doc_en:      str         # Document name in English (LLM context)
     file_corpus: List[Dict]  # All loaded documents from the candidate's proof folder
@@ -76,25 +60,10 @@ class PipelineState(TypedDict):
 
     # ── Node 4 output ─────────────────────────────────────────────────────────
     verdict: Dict                # Final document presence verdict from the LLM
-=======
-    doc_fr:      str         # Document name in French  (BM25 + embedding query)
-    doc_en:      str         # Document name in English (passed to LLM for context)
-    file_corpus: List[Dict]  # All loaded documents from the candidate's proof folder
-
-    # ── Stage 1 output ────────────────────────────────────────────────────────
-    candidate_files: List[Dict]   # Files shortlisted by BM25
-
-    # ── Stage 2 output ────────────────────────────────────────────────────────
-    retrieved_pages: List[Dict]   # Pages retrieved by semantic search
-
-    # ── Stage 3 output ────────────────────────────────────────────────────────
-    verdict: Dict                 # Final document presence verdict from the LLM
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
 
 
 # ─── Node Functions ───────────────────────────────────────────────────────────
 
-<<<<<<< HEAD
 def keyword_suggestion_node(state: PipelineState) -> Dict[str, Any]:
     """
     Node 1 — French Keyword Suggestion.
@@ -137,39 +106,17 @@ def bm25_triage_node(state: PipelineState) -> Dict[str, Any]:
         exigence=query,
         file_corpus=state["file_corpus"],
         french_keywords=keywords,
-=======
-def bm25_triage_node(state: PipelineState) -> Dict[str, Any]:
-    """
-    Node 1 — BM25 File Triage.
-    Scores all files in the corpus against the document name using BM25
-    and returns the top-K most likely relevant files.
-    """
-    # Combine FR + EN for a richer BM25 query
-    query = f"{state['doc_fr']} {state['doc_en']}"
-    logger.info(f"[Node 1 / BM25] Query: '{query[:70]}'")
-
-    candidates = bm25_file_triage(
-        exigence=query,
-        file_corpus=state["file_corpus"],
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
         top_k=BM25_TOP_K,
     )
 
     if not candidates:
-<<<<<<< HEAD
         logger.warning("[Node 2 / BM25] No candidate pages found")
 
     return {"candidate_pages": candidates}
-=======
-        logger.warning("[Node 1 / BM25] No candidate files found")
-
-    return {"candidate_files": candidates}
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
 
 
 def semantic_search_node(state: PipelineState) -> Dict[str, Any]:
     """
-<<<<<<< HEAD
     Node 3 — Semantic Page Search.
 
     Embeds only the BM25-shortlisted pages (dedup applies — already-indexed
@@ -182,18 +129,6 @@ def semantic_search_node(state: PipelineState) -> Dict[str, Any]:
     pages = semantic_page_search(
         exigence=state["doc_fr"],
         candidate_pages=state.get("candidate_pages", []),
-=======
-    Node 2 — Semantic Page Search.
-    Embeds pages from BM25-shortlisted files into an ephemeral ChromaDB
-    collection and retrieves the top-M most semantically relevant pages.
-    """
-    logger.info(f"[Node 2 / Semantic] Searching {len(state['candidate_files'])} candidate file(s)")
-
-    # Use the French name as the primary embedding query
-    pages = semantic_page_search(
-        exigence=state["doc_fr"],
-        candidate_files=state["candidate_files"],
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
         top_m=SEMANTIC_TOP_M,
     )
 
@@ -202,7 +137,6 @@ def semantic_search_node(state: PipelineState) -> Dict[str, Any]:
 
 def verdict_node(state: PipelineState) -> Dict[str, Any]:
     """
-<<<<<<< HEAD
     Node 4 — LLM Verdict.
 
     Asks Groq whether the retrieved pages contain the required document.
@@ -213,31 +147,17 @@ def verdict_node(state: PipelineState) -> Dict[str, Any]:
         f"[Node 4 / LLM] Checking '{state['doc_fr']}' "
         f"({len(state['retrieved_pages'])} page(s))"
     )
-=======
-    Node 3 — LLM Verdict.
-    Asks Groq whether the retrieved pages contain the required document.
-    Returns a structured verdict dict.
-    """
-    logger.info(f"[Node 3 / LLM] Checking '{state['doc_fr']}' ({len(state['retrieved_pages'])} page(s))")
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
 
     verdict = run_verdict(
         doc_fr=state["doc_fr"],
         doc_en=state["doc_en"],
         retrieved_pages=state["retrieved_pages"],
-<<<<<<< HEAD
         french_keywords=state.get("french_keywords", []),
-=======
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
     )
 
     status_icon = "✅" if verdict.get("satisfied") else "❌"
     logger.info(
-<<<<<<< HEAD
         f"[Node 4 / LLM] {status_icon} {verdict.get('confidence', '').upper()} — "
-=======
-        f"[Node 3 / LLM] {status_icon} {verdict.get('confidence', '').upper()} — "
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
         f"{verdict.get('justification', '')[:80]}"
     )
 
@@ -248,18 +168,13 @@ def verdict_node(state: PipelineState) -> Dict[str, Any]:
 
 def build_compliance_graph():
     """
-<<<<<<< HEAD
     Assemble and compile the 4-node LangGraph HR document verification pipeline.
-=======
-    Assemble and compile the 3-node LangGraph HR document verification pipeline.
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
 
     Returns:
         A compiled LangGraph runnable — call .invoke(initial_state) to run.
     """
     graph = StateGraph(PipelineState)
 
-<<<<<<< HEAD
     graph.add_node("keyword_suggestion", keyword_suggestion_node)
     graph.add_node("bm25_triage",        bm25_triage_node)
     graph.add_node("semantic_search",    semantic_search_node)
@@ -270,15 +185,5 @@ def build_compliance_graph():
     graph.add_edge("bm25_triage",        "semantic_search")
     graph.add_edge("semantic_search",    "verdict")
     graph.add_edge("verdict",            END)
-=======
-    graph.add_node("bm25_triage",     bm25_triage_node)
-    graph.add_node("semantic_search", semantic_search_node)
-    graph.add_node("verdict",         verdict_node)
-
-    graph.set_entry_point("bm25_triage")
-    graph.add_edge("bm25_triage",     "semantic_search")
-    graph.add_edge("semantic_search", "verdict")
-    graph.add_edge("verdict",         END)
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
 
     return graph.compile()

@@ -1,7 +1,6 @@
 """
 pipeline/retrieval.py — Two-stage retrieval.
 
-<<<<<<< HEAD
 Stage 1 — BM25 page triage (coarse, lexical):
     Score every individual page across the entire corpus using BM25.
     The query is enriched with LLM-generated French keywords (from Node 1)
@@ -55,33 +54,6 @@ logger = logging.getLogger(__name__)
 # ─── Embeddings (singleton — loaded once, reused for all queries) ─────────────
 
 _embeddings: Optional[HuggingFaceEmbeddings] = None
-=======
-Stage 1 — BM25 file triage (coarse, lexical):
-    Given an exigence query, score every file in the corpus using BM25
-    and return the top-K most likely relevant files.
-
-Stage 2 — Semantic page search (fine, embedding-based):
-    For the shortlisted files only, embed each page into an ephemeral
-    in-memory ChromaDB collection and retrieve the top-M most relevant pages.
-    The collection is deleted after each query so nothing accumulates between runs.
-"""
-import logging
-import uuid
-from typing import Dict, List
-
-from langchain_core.documents import Document
-from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
-from rank_bm25 import BM25Okapi
-
-from config import BM25_TOP_K, EMBEDDING_MODEL, SEMANTIC_TOP_M
-
-logger = logging.getLogger(__name__)
-
-# ─── Embeddings (singleton — loaded once, reused for all queries) ─────────────
-
-_embeddings: HuggingFaceEmbeddings | None = None
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
 
 
 def _get_embeddings() -> HuggingFaceEmbeddings:
@@ -92,7 +64,6 @@ def _get_embeddings() -> HuggingFaceEmbeddings:
     return _embeddings
 
 
-<<<<<<< HEAD
 # ─── Persistent ChromaDB client (singleton) ───────────────────────────────────
 
 _chroma_client: Optional[chromadb.PersistentClient] = None
@@ -207,52 +178,12 @@ def bm25_page_triage(
         f"BM25 page triage: shortlisted {len(candidates)}/{len(all_pages)} page(s) "
         f"[query tokens: {len(query_tokens)}, "
         f"top scores: {[round(scores[i], 2) for i in sorted_indices[:3]]}]"
-=======
-# ─── Stage 1: BM25 File Triage ───────────────────────────────────────────────
-
-def bm25_file_triage(
-    exigence: str,
-    file_corpus: List[Dict],
-    top_k: int = BM25_TOP_K,
-) -> List[Dict]:
-    """
-    Use BM25 to score each file in the corpus against the exigence query.
-    Returns up to top_k files with a positive BM25 score, sorted by relevance.
-
-    Args:
-        exigence:    The compliance requirement text (used as the BM25 query).
-        file_corpus: All loaded documents from the proof folder.
-        top_k:       Maximum number of files to shortlist.
-
-    Returns:
-        List of file dicts (same format as file_corpus), filtered and sorted.
-    """
-    if not file_corpus:
-        logger.warning("BM25 triage: corpus is empty")
-        return []
-
-    # Tokenize each file's full text (simple whitespace split — fast and good enough)
-    tokenized_corpus = [doc["full_text"].lower().split() for doc in file_corpus]
-    bm25 = BM25Okapi(tokenized_corpus)
-
-    query_tokens = exigence.lower().split()
-    scores = bm25.get_scores(query_tokens)
-
-    # Sort indices by score descending, keep only positive scores
-    sorted_indices = scores.argsort()[::-1][:top_k]
-    candidates = [file_corpus[i] for i in sorted_indices if scores[i] > 0]
-
-    logger.info(
-        f"BM25: shortlisted {len(candidates)}/{len(file_corpus)} file(s) "
-        f"(top scores: {[round(scores[i], 2) for i in sorted_indices[:3]]})"
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
     )
     return candidates
 
 
 # ─── Stage 2: Semantic Page Search ───────────────────────────────────────────
 
-<<<<<<< HEAD
 def _index_new_pages(
     page_dicts: List[Dict],
     embeddings: HuggingFaceEmbeddings,
@@ -310,30 +241,10 @@ def _index_new_pages(
         logger.info(f"Indexed {len(new_docs)} new page(s) into '{CHROMA_COLLECTION_NAME}'")
 
     return all_ids
-=======
-def _build_page_documents(candidate_files: List[Dict]) -> List[Document]:
-    """Convert candidate file pages into LangChain Document objects."""
-    documents = []
-    for file_doc in candidate_files:
-        for page in file_doc["pages"]:
-            text = page["text"].strip()
-            if not text:
-                continue
-            documents.append(Document(
-                page_content=text,
-                metadata={
-                    "source_file": file_doc["file_name"],
-                    "file_path": file_doc["file_path"],
-                    "page_num": page["page_num"],
-                },
-            ))
-    return documents
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
 
 
 def semantic_page_search(
     exigence: str,
-<<<<<<< HEAD
     candidate_pages: List[Dict],
     top_m: int = SEMANTIC_TOP_M,
     restrict_to_candidates: bool = RESTRICT_SEARCH_TO_CANDIDATE_PAGES,
@@ -396,62 +307,6 @@ def semantic_page_search(
             "file_path":   doc.metadata.get("file_path", ""),
             "page_num":    doc.metadata.get("page_num", 0),
             "file_ext":    doc.metadata.get("file_ext", ""),
-=======
-    candidate_files: List[Dict],
-    top_m: int = SEMANTIC_TOP_M,
-) -> List[Dict]:
-    """
-    Embed all pages from candidate_files into a fresh in-memory ChromaDB
-    collection, run a similarity search for the exigence, then delete the
-    collection (ephemeral — nothing is persisted to disk).
-
-    Args:
-        exigence:        The compliance requirement text (used as the search query).
-        candidate_files: BM25-shortlisted file dicts containing page content.
-        top_m:           Number of pages to retrieve.
-
-    Returns:
-        List of {"text": str, "source_file": str, "page_num": int} dicts.
-    """
-    if not candidate_files:
-        logger.warning("Semantic search: no candidate files — skipping embedding step")
-        return []
-
-    documents = _build_page_documents(candidate_files)
-    if not documents:
-        logger.warning("Semantic search: no page text found in candidate files")
-        return []
-
-    # Unique collection name so parallel runs don't collide
-    collection_name = f"compliance_{uuid.uuid4().hex[:12]}"
-
-    logger.info(
-        f"Semantic search: embedding {len(documents)} page(s) "
-        f"from {len(candidate_files)} file(s) into collection '{collection_name}'"
-    )
-
-    vectorstore = Chroma.from_documents(
-        documents=documents,
-        embedding=_get_embeddings(),
-        collection_name=collection_name,
-        # No persist_directory → ephemeral in-memory collection
-    )
-
-    k = min(top_m, len(documents))
-    results: List[Document] = vectorstore.similarity_search(exigence, k=k)
-
-    # Clean up immediately — we don't want stale data across exigences
-    try:
-        vectorstore.delete_collection()
-    except Exception as e:
-        logger.debug(f"Collection cleanup warning (non-critical): {e}")
-
-    retrieved = [
-        {
-            "text": doc.page_content,
-            "source_file": doc.metadata["source_file"],
-            "page_num": doc.metadata["page_num"],
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
         }
         for doc in results
     ]
