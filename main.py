@@ -81,12 +81,8 @@ def main() -> None:
             "doc_en":          row["doc_en"],
             "file_corpus":     file_corpus,
             # Filled by graph nodes:
-<<<<<<< HEAD
             "french_keywords": [],
             "candidate_pages": [],
-=======
-            "candidate_files": [],
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
             "retrieved_pages": [],
             "verdict":         {},
         }
