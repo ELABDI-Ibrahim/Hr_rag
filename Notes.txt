@@ -1,0 +1,4 @@
+Before doing the BM25 the keyword_suggestion (Node 2 (NEW) — LLM generates French keywords for doc type) can be enhanced using a model that extract words from data we have (Some data mining)
+AI said the same point : Future enhancement (noted by user): keywords could also be mined from a reference dataset using TF-IDF/data-mining instead of purely LLM-generated. The LLM approach is used for now since it requires no additional data.
+
+First embed the whole document because you might have context in the closest pages (And then see if this page stuff will give better results)
