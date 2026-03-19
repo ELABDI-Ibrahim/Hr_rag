@@ -127,11 +127,25 @@ ipython_config.py
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
 
-<<<<<<< HEAD
-onnx_model/model_O4.onnx
+onnx_model
+nli_crossencoder
+myenv
+ignore_git
 
-=======
->>>>>>> 0f909347a4ecb9caed3f0bdbe2602984c9e8a897
+# MLflow local tracking data
+mlruns/
+mlflow.db                 
+
+# Vector DB persistence (Chroma)
+chroma_db/
+.chroma/                 
+
+# Virtual environments
+venv/
+env/
+.myenv/
+
+
 # Celery stuff
 celerybeat-schedule
 celerybeat.pid

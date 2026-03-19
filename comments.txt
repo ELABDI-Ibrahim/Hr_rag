@@ -1,0 +1,122 @@
+1 - For this try document mining (to find where proof is required or dépends like the case for having sufficient talent)
+""
+✅ Step 1 — Add a “Evidence Requirement” label
+
+For each requirement, annotate:
+
+📄 Document-required
+
+🗣️ Oral/implicit allowed
+
+❓ Unknown / ambiguous
+
+✅ Step 2 — Condition your metrics
+Case A: Document-required
+
+Use normal RAG metrics:
+
+Context Recall
+
+Context Precision
+
+Faithfulness
+
+👉 Here retrieval matters
+
+Case B: Oral / implicit allowed
+
+👉 IGNORE retrieval metrics
+
+Instead evaluate:
+
+Label correctness (κ, F1)
+
+Reasoning quality (LLM-as-judge or rubric)
+
+4. Add a “Justification Type” Output
+
+Modify your LLM output to include:
+
+{
+  "compliance": "partial",
+  "justification_type": "document | oral | inferred",
+  "evidence": "...",
+  "confidence": 0.82
+}
+Then define metrics per type:
+📄 Document-based
+
+Retrieval metrics ON
+
+Faithfulness ON
+
+🗣️ Oral-based
+
+Retrieval metrics OFF
+
+Evaluate:
+
+consistency
+
+plausibility
+
+agreement with human
+""
+
+
+2- ✔️ Weighted Cohen’s Kappa (κ)
+
+Use when:
+
+You compare model vs human OR annotator A vs annotator B
+
+Idea:
+
+It measures:
+
+“How much better is the agreement than random, while accounting for closeness of labels”
+
+Key concept: weights
+
+You assign penalties like:
+
+True \ Pred	Not	Partial	Yes
+Not	0	1	2
+Partial	1	0	1
+Yes	2	1	0
+
+Then normalize → bigger distance = bigger penalty
+
+So:
+
+Yes vs Partial → small penalty ✅
+
+Yes vs Not → big penalty ❌
+
+👉 This is exactly what you want.
+
+
+3- For the structured JSON / field extraction, use:
+
+Strict exact match on required fields for a hard pass/fail view.
+
+Field/entity-level F1 for the main extraction score.
+
+A soft-match / edit-distance metric for partial credit when values are close but not identical.
+Exact-match entity F1 is standard in document information extraction, while soft-match metrics like tree edit distance were introduced to avoid over-penalizing small surface differences.
+
+For the retrieval step of RAG, the most useful metrics are:
+
+Context recall: did you retrieve the relevant evidence?
+
+Context precision: did you rank relevant chunks above irrelevant ones?
+
+Context entities recall: did you retrieve the key facts/entities?
+Ragas provides all three, and its docs define context precision as ranking relevant chunks higher, while context recall focuses on not missing important information.
+
+If ranking quality matters, add MRR and nDCG@k. MRR is the reciprocal of the rank of the first relevant document, and NDCG is a widely used ranking metric for retrieval.
+
+For the generation / groundedness step, add faithfulness and answer relevance. Ragas includes both in its RAG evaluation set, and faithfulness is defined as factual consistency of the answer with the retrieved context.
+
+
+4- do mining on some documents that already exists and try Hypothetical Document Embeddings in a smart way instead of halucinations
