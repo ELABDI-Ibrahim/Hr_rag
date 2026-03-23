@@ -1,0 +1,266 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);color:var(--color-text-primary)}
+.wrap{padding:1.5rem 0}
+.filters{display:flex;gap:8px;margin-bottom:1.5rem;flex-wrap:wrap}
+.filt{padding:5px 14px;border:0.5px solid var(--color-border-secondary);border-radius:20px;font-size:12px;cursor:pointer;background:transparent;color:var(--color-text-secondary);transition:all .15s}
+.filt.active{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+.section-label{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-tertiary);padding:12px 0 6px;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:2px}
+.row{display:grid;grid-template-columns:220px 1fr 80px 80px 90px;gap:8px;align-items:start;padding:9px 8px;border-radius:var(--border-radius-md);cursor:pointer;transition:background .1s}
+.row:hover{background:var(--color-background-secondary)}
+.row.hidden{display:none}
+.mname{font-size:13px;font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.mdesc{font-size:12px;color:var(--color-text-secondary);margin-top:2px;line-height:1.4}
+.badge{font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap;display:inline-block;line-height:1.5}
+.b-crit{background:#FCEBEB;color:#A32D2D}
+.b-imp{background:#FAEEDA;color:#854F0B}
+.b-nice{background:#F1EFE8;color:#5F5E5A}
+.b-yes{background:#EAF3DE;color:#3B6D11}
+.b-part{background:#FAEEDA;color:#854F0B}
+.b-no{background:#FCEBEB;color:#A32D2D}
+.path-pill{font-size:10px;padding:2px 6px;border-radius:8px;white-space:nowrap}
+.p-doc{background:#E6F1FB;color:#0C447C}
+.p-oral{background:#EEEDFE;color:#3C3489}
+.p-all{background:#E1F5EE;color:#085041}
+.col-head{font-size:11px;color:var(--color-text-tertiary);font-weight:500}
+.detail-panel{background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:12px 14px;margin:4px 0 8px;font-size:12px;color:var(--color-text-secondary);line-height:1.6;border:0.5px solid var(--color-border-tertiary)}
+.detail-panel strong{color:var(--color-text-primary);font-weight:500}
+.stat-row{display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
+.stat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;min-width:90px;text-align:center}
+.stat-n{font-size:22px;font-weight:500;color:var(--color-text-primary)}
+.stat-l{font-size:11px;color:var(--color-text-tertiary);margin-top:2px}
+.domain-box{background:var(--color-background-info);border-radius:var(--border-radius-lg);padding:12px 16px;margin-bottom:1rem;border:0.5px solid var(--color-border-info)}
+.domain-box p{font-size:13px;color:var(--color-text-info);line-height:1.5}
+.domain-box strong{font-weight:500}
+.asym-box{background:var(--color-background-danger);border-radius:var(--border-radius-lg);padding:10px 16px;margin-bottom:1.5rem;border:0.5px solid var(--color-border-danger)}
+.asym-box p{font-size:12px;color:var(--color-text-danger);line-height:1.5}
+</style>
+
+<div class="wrap">
+
+<div class="domain-box">
+<p><strong>Domain context:</strong> Compliance due diligence in insurance (AXA) — ordinal 3-class verdict, asymmetric error costs, regulatory explainability mandate, two fundamentally different evidence paths (document vs declarative), human expert as ground truth.</p>
+</div>
+
+<div class="asym-box">
+<p><strong>Error asymmetry rule:</strong> A missed non-compliant (false positive on compliant) is categorically more costly than a false alarm. This changes how you weight κ, set confidence thresholds, and prioritise recall over precision on the non-compliant class.</p>
+</div>
+
+<div class="stat-row">
+<div class="stat"><div class="stat-n">18</div><div class="stat-l">total metrics</div></div>
+<div class="stat"><div class="stat-n">9</div><div class="stat-l">implemented</div></div>
+<div class="stat"><div class="stat-n">5</div><div class="stat-l">domain-specific</div></div>
+<div class="stat"><div class="stat-n">3</div><div class="stat-l">layers</div></div>
+</div>
+
+<div class="filters">
+<button class="filt active" onclick="filter('all',this)">All paths</button>
+<button class="filt" onclick="filter('doc',this)">Document path only</button>
+<button class="filt" onclick="filter('oral',this)">Oral path only</button>
+<button class="filt" onclick="filter('missing',this)">Not yet implemented</button>
+<button class="filt" onclick="filter('critical',this)">Critical priority only</button>
+</div>
+
+<div style="display:grid;grid-template-columns:220px 1fr 80px 80px 90px;gap:8px;padding:0 8px 6px;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:4px">
+<span class="col-head">Metric</span>
+<span class="col-head">What it measures</span>
+<span class="col-head">Priority</span>
+<span class="col-head">Status</span>
+<span class="col-head">Path</span>
+</div>
+
+<div id="rows">
+
+<div class="section-label">Retrieval quality</div>
+
+<div class="row" data-path="doc" data-priority="critical" data-status="yes" onclick="toggle(this)">
+<div><span class="mname">Context Recall</span><div class="detail-panel" style="display:none"><strong>What:</strong> Fraction of expected evidence tokens covered by retrieved chunks.<br><strong>Why it matters here:</strong> A missed ISO cert page = missed non-compliant. In compliance, recall failures are catastrophic — every relevant page must surface.<br><strong>Implementation:</strong> token overlap vs human_notes. Upgrade path: use an LLM judge to score semantic coverage.<br><strong>Threshold:</strong> &gt;0.75 minimum; aim for &gt;0.85 on document_required rows.</div></div>
+<div class="mdesc">Did we retrieve the page that contains the proof?</div>
+<span class="badge b-crit">critical</span>
+<span class="badge b-yes">done</span>
+<span class="path-pill p-doc">doc only</span>
+</div>
+
+<div class="row" data-path="doc" data-priority="critical" data-status="yes" onclick="toggle(this)">
+<div><span class="mname">Context Precision</span><div class="detail-panel" style="display:none"><strong>What:</strong> Fraction of retrieved chunks that are actually relevant.<br><strong>Why it matters here:</strong> The proof folder has irrelevant blobs (cooking recipes inside a merged admin PDF). Low precision = LLM noise = hallucinated verdicts.<br><strong>Implementation:</strong> token overlap vs expected evidence. Threshold: &gt;0.5 acceptable, &lt;0.3 indicates a retrieval strategy problem.<br><strong>Domain note:</strong> More permissive than in QA — 80-page proofs mean some noise is unavoidable.</div></div>
+<div class="mdesc">Are retrieved chunks actually useful or just noise?</div>
+<span class="badge b-crit">critical</span>
+<span class="badge b-yes">done</span>
+<span class="path-pill p-doc">doc only</span>
+</div>
+
+<div class="row" data-path="doc" data-priority="important" data-status="no" onclick="toggle(this)">
+<div><span class="mname">MRR — Mean Reciprocal Rank</span><div class="detail-panel" style="display:none"><strong>What:</strong> Reciprocal of the rank of the first relevant chunk. MRR=1 means the relevant chunk is #1.<br><strong>Why it matters here:</strong> The LLM verdict sees top-k pages in order. If the smoking-gun cert page is ranked 4th instead of 1st, the LLM may miss it or weight it less.<br><strong>To implement:</strong> Requires per-row human annotation of which pages are actually relevant — not yet done.<br><strong>Formula:</strong> 1/rank_of_first_relevant. Macro-average across all document_required rows.</div></div>
+<div class="mdesc">How early does the first relevant page rank?</div>
+<span class="badge b-imp">important</span>
+<span class="badge b-no">missing</span>
+<span class="path-pill p-doc">doc only</span>
+</div>
+
+<div class="row" data-path="doc" data-priority="important" data-status="no" onclick="toggle(this)">
+<div><span class="mname">Hit Rate@k</span><div class="detail-panel" style="display:none"><strong>What:</strong> Binary — is at least one relevant page in the top-k? Simpler than recall but directly answers "did retrieval fail completely?"<br><strong>Why it matters here:</strong> For compliance, a hit rate &lt;80% means the strategy will structurally miss some requirements — a hard blocker for production use.<br><strong>To implement:</strong> Requires ground-truth page labels per exigence. Even partial labels (1-2 rows per strategy run) give a useful signal.<br><strong>Variants:</strong> Hit Rate@4 for naive_rag/hyde, Hit Rate@20 for reranker's BM25 stage.</div></div>
+<div class="mdesc">Is the answer anywhere in top-k retrieved chunks?</div>
+<span class="badge b-imp">important</span>
+<span class="badge b-no">missing</span>
+<span class="path-pill p-doc">doc only</span>
+</div>
+
+<div class="row" data-path="doc" data-priority="important" data-status="no" onclick="toggle(this)">
+<div><span class="mname">Context Entity Recall</span><div class="detail-panel" style="display:none"><strong>What:</strong> Did we retrieve the specific entities the expert cited? (cert number, issuer, date, ISO standard code)<br><strong>Why it matters here:</strong> A cert page with the wrong scope or wrong year is not proof of compliance. Entity-level matching catches cases where a page is superficially relevant but factually wrong.<br><strong>To implement:</strong> Extract NER entities from human_notes, check presence in retrieved pages. spaCy fr_core_news_md works for French docs.<br><strong>Note:</strong> The best RAG eval signal for compliance — more informative than token overlap alone.</div></div>
+<div class="mdesc">Did we retrieve the key facts (cert #, issuer, date)?</div>
+<span class="badge b-imp">important</span>
+<span class="badge b-no">missing</span>
+<span class="path-pill p-doc">doc only</span>
+</div>
+
+<div class="section-label">Generation quality</div>
+
+<div class="row" data-path="doc" data-priority="critical" data-status="yes" onclick="toggle(this)">
+<div><span class="mname">Faithfulness</span><div class="detail-panel" style="display:none"><strong>What:</strong> Is every claim in the AI reasoning actually supported by the retrieved context?<br><strong>Why it matters here:</strong> Hallucinated cert numbers or expiry dates in the reasoning are a compliance risk — the SSI expert might rely on them.<br><strong>Implementation:</strong> Token overlap between reasoning and retrieved context. Upgrade: LLM-as-judge prompting each factual claim against chunks.<br><strong>Threshold:</strong> &gt;0.6 minimum. Below 0.4 indicates the LLM is generating from parametric knowledge, not the documents.<br><strong>Research:</strong> LegalBench-RAG and LawBench confirm faithfulness is the most predictive metric for compliance task accuracy.</div></div>
+<div class="mdesc">Is reasoning grounded in retrieved docs, not hallucinated?</div>
+<span class="badge b-crit">critical</span>
+<span class="badge b-yes">done</span>
+<span class="path-pill p-doc">doc only</span>
+</div>
+
+<div class="row" data-path="oral" data-priority="important" data-status="yes" onclick="toggle(this)">
+<div><span class="mname">Reasoning Soft Match</span><div class="detail-panel" style="display:none"><strong>What:</strong> Token overlap between AI reasoning and the expert's notes on oral/declarative rows.<br><strong>Why it matters here:</strong> For oral requirements ("employees trained", "vendor commits to 72h notification"), there are no documents to check. Instead, measure whether the AI reasoning covers the same key points as the expert.<br><strong>Implementation:</strong> Done — utils/evaluation.py uses token-overlap vs human_notes.<br><strong>Upgrade:</strong> BERTScore-based semantic match. French models: CamemBERT or XLM-RoBERTa.</div></div>
+<div class="mdesc">Does AI reasoning cover the same points as the expert?</div>
+<span class="badge b-imp">important</span>
+<span class="badge b-yes">done</span>
+<span class="path-pill p-oral">oral only</span>
+</div>
+
+<div class="row" data-path="all" data-priority="important" data-status="no" onclick="toggle(this)">
+<div><span class="mname">Hallucination Rate</span><div class="detail-panel" style="display:none"><strong>What:</strong> % of responses containing at least one factual claim not supported by the source context.<br><strong>Why it matters here:</strong> Stanford AI Lab data shows poorly evaluated RAG systems hallucinate in up to 40% of responses even when accessing correct documents. In a compliance context this is a direct regulatory risk.<br><strong>To implement:</strong> Use an LLM-as-judge (second LLM call) to scan each statement in the reasoning against the retrieved pages. Flag any claim with no citation support.<br><strong>Tooling:</strong> RAGAS has a built-in faithfulness evaluator that decomposes reasoning into atomic claims — each claim is entailment-checked against the context.</div></div>
+<div class="mdesc">% of verdicts containing unsupported factual claims</div>
+<span class="badge b-imp">important</span>
+<span class="badge b-no">missing</span>
+<span class="path-pill p-all">all paths</span>
+</div>
+
+<div class="row" data-path="doc" data-priority="important" data-status="no" onclick="toggle(this)">
+<div><span class="mname">Citation Accuracy</span><div class="detail-panel" style="display:none"><strong>What:</strong> When the AI says "see certificat_iso27001.pdf p.1", does that file+page actually contain the cited evidence?<br><strong>Why it matters here:</strong> SSI experts use these citations to do spot-checks. A wrong citation destroys trust immediately and makes the tool unusable in practice.<br><strong>To implement:</strong> Cross-check source_files and source_page fields in the verdict dict against the actual retrieved_pages list. Simple rule: cited file must appear in retrieved_pages.<br><strong>Note:</strong> Low-cost, high-value check — fully implementable with the current data structure.</div></div>
+<div class="mdesc">Do cited file references actually contain the evidence?</div>
+<span class="badge b-imp">important</span>
+<span class="badge b-no">missing</span>
+<span class="path-pill p-doc">doc only</span>
+</div>
+
+<div class="section-label">Verdict / classification agreement</div>
+
+<div class="row" data-path="all" data-priority="critical" data-status="yes" onclick="toggle(this)">
+<div><span class="mname">Weighted Cohen's kappa</span><div class="detail-panel" style="display:none"><strong>What:</strong> Agreement between AI verdict and human expert, weighted by ordinal distance.<br><strong>Why it matters here:</strong> This is THE primary metric for this domain. Ordinal penalties (0/1/2) mean a compliant↔non_compliant error is penalised 2× harder than a compliant↔partial error. This matches the real-world cost structure exactly.<br><strong>Interpretation:</strong> κ&gt;0.8 excellent, 0.6–0.8 good, &lt;0.4 insufficient for production use.<br><strong>Implementation:</strong> Done. utils/evaluation.py with the exact 3×3 penalty matrix.<br><strong>Research backing:</strong> Weighted κ is the standard for ordinal clinical/compliance classification tasks — used in ICD coding, audit grading, and risk rating.</div></div>
+<div class="mdesc">Ordinal AI vs human agreement, error-cost weighted</div>
+<span class="badge b-crit">critical</span>
+<span class="badge b-yes">done</span>
+<span class="path-pill p-all">all paths</span>
+</div>
+
+<div class="row" data-path="all" data-priority="critical" data-status="yes" onclick="toggle(this)">
+<div><span class="mname">Macro F1 + per-class F1</span><div class="detail-panel" style="display:none"><strong>What:</strong> Precision, recall, F1 per class (compliant / partial / non_compliant), then macro-averaged.<br><strong>Why it matters here:</strong> Macro averaging treats the three classes equally. In practice you want to also look at F1(non_compliant) separately — the rarest and most important class should not be dragged down by majority voting.<br><strong>Key insight:</strong> A model that always predicts "partially_compliant" gets decent macro F1 but zero F1(non_compliant). Track all three separately.<br><strong>Implementation:</strong> Done. utils/evaluation.py, all 3 classes plus macro.</div></div>
+<div class="mdesc">Per-class precision/recall — especially F1(non_compliant)</div>
+<span class="badge b-crit">critical</span>
+<span class="badge b-yes">done</span>
+<span class="path-pill p-all">all paths</span>
+</div>
+
+<div class="row" data-path="all" data-priority="important" data-status="no" onclick="toggle(this)">
+<div><span class="mname">False Negative Rate on non-compliant</span><div class="detail-panel" style="display:none"><strong>What:</strong> % of true non-compliant exigences that the AI labels as compliant or partially compliant. The asymmetric error that matters most.<br><strong>Why it matters here:</strong> AXA's SSI experts use the AI output to prioritise review. A missed non-compliant means a risky subcontractor gets through. This single metric should have an explicit pass/fail threshold in the system's acceptance criteria.<br><strong>Formula:</strong> FN_non / (FN_non + TP_non). Target: &lt;10% for production use.<br><strong>To implement:</strong> Trivial — derive from the existing confusion matrix. Add as a dedicated metric in utils/evaluation.py and the comparison report Overview sheet.</div></div>
+<div class="mdesc">How often does AI miss a real non-compliant? The critical failure mode</div>
+<span class="badge b-crit">critical</span>
+<span class="badge b-no">missing</span>
+<span class="path-pill p-all">all paths</span>
+</div>
+
+<div class="row" data-path="all" data-priority="important" data-status="yes" onclick="toggle(this)">
+<div><span class="mname">Exact Match (strict accuracy)</span><div class="detail-panel" style="display:none"><strong>What:</strong> Fraction of rows where AI label exactly matches the human expert.<br><strong>Why it matters here:</strong> Useful as a sanity check, but in isolation misleading — a 60% exact match hides whether the 40% errors are all on non_compliant (catastrophic) or all compliant↔partial (tolerable).<br><strong>Use alongside κ:</strong> High exact match + low κ is impossible. Low exact match + moderate κ means errors are all adjacent — acceptable for a first pass.<br><strong>Implementation:</strong> Done.</div></div>
+<div class="mdesc">% labels exactly matching the expert</div>
+<span class="badge b-imp">important</span>
+<span class="badge b-yes">done</span>
+<span class="path-pill p-all">all paths</span>
+</div>
+
+<div class="section-label">Domain-specific additions (compliance)</div>
+
+<div class="row" data-path="all" data-priority="critical" data-status="no" onclick="toggle(this)">
+<div><span class="mname">Confidence Calibration</span><div class="detail-panel" style="display:none"><strong>What:</strong> Are the model's confidence scores actually predictive of accuracy? If the AI says 0.9 confidence, it should be correct 90% of the time.<br><strong>Why it matters here:</strong> SSI experts use the confidence score to decide whether to deep-review a case. Overconfident wrong verdicts are dangerous — an expert will skip manual review on a 0.92-confidence "compliant" that is actually non-compliant.<br><strong>To implement:</strong> Plot confidence vs accuracy in buckets (0–0.5, 0.5–0.7, 0.7–0.9, 0.9–1.0). Compute ECE (Expected Calibration Error).<br><strong>Calibration fix:</strong> If AI is systematically overconfident, add a post-hoc calibration step or add calibration instruction to the verdict prompt.</div></div>
+<div class="mdesc">When AI says 0.9 confidence, is it right 90% of the time?</div>
+<span class="badge b-crit">critical</span>
+<span class="badge b-no">missing</span>
+<span class="path-pill p-all">all paths</span>
+</div>
+
+<div class="row" data-path="all" data-priority="important" data-status="no" onclick="toggle(this)">
+<div><span class="mname">Evidence Type Accuracy</span><div class="detail-panel" style="display:none"><strong>What:</strong> Does the evidence_mining node (bm25_hybrid only) correctly classify document_required vs oral_implicit?<br><strong>Why it matters here:</strong> A misclassified oral requirement triggers full retrieval — which always fails (no document exists). This inflates retrieval errors and leads to wrong non-compliant verdicts for declarative requirements.<br><strong>To implement:</strong> Add a column to the Excel input: "Type_Preuve_Attendue_Expert" (human annotation). Compare against the AI's L column.<br><strong>Metric:</strong> Simple classification accuracy. Target: &gt;85% — this gate must be passed before retrieval metrics mean anything.</div></div>
+<div class="mdesc">Does evidence routing correctly classify doc vs oral?</div>
+<span class="badge b-imp">important</span>
+<span class="badge b-no">missing</span>
+<span class="path-pill p-all">all paths</span>
+</div>
+
+<div class="row" data-path="doc" data-priority="important" data-status="no" onclick="toggle(this)">
+<div><span class="mname">Overreliance on Irrelevant Docs</span><div class="detail-panel" style="display:none"><strong>What:</strong> Does the AI reach a confident verdict based on clearly irrelevant pages? (e.g., the "cooking recipes" section of the merged admin PDF becoming "evidence")<br><strong>Why it matters here:</strong> This is the main failure mode in messy proof folders. The AI can reach a plausible-sounding verdict about ISO 27001 by hallucinating around unrelated content if context precision is very low.<br><strong>To implement:</strong> Flag any verdict with confidence &gt;0.7 where context_precision &lt;0.3. These are the high-risk cases that need manual review.<br><strong>Signal:</strong> If source_files cited don't match the proof_refs column, that's a strong overreliance signal.</div></div>
+<div class="mdesc">High confidence verdict from clearly unrelated evidence?</div>
+<span class="badge b-imp">important</span>
+<span class="badge b-no">missing</span>
+<span class="path-pill p-doc">doc only</span>
+</div>
+
+<div class="row" data-path="all" data-priority="nice" data-status="yes" onclick="toggle(this)">
+<div><span class="mname">Latency by evidence type</span><div class="detail-panel" style="display:none"><strong>What:</strong> Mean/P95 latency broken down by oral vs document path, and by strategy.<br><strong>Why it matters here:</strong> The oral path should be 2–3× faster than the document path (no retrieval, no embedding). If it isn't, the evidence routing is broken or the oral verdict prompt is too verbose.<br><strong>Implementation:</strong> Done — latency sheet in the comparison report, per-row latency_ms in StrategyResult.<br><strong>Targets:</strong> Oral path &lt;5s/row. Document path &lt;15s/row (with cold embedding). HyDE will be slowest due to +1 LLM call.</div></div>
+<div class="mdesc">Speed by path — oral should be 2–3× faster than doc</div>
+<span class="badge b-nice">nice to have</span>
+<span class="badge b-yes">done</span>
+<span class="path-pill p-all">all paths</span>
+</div>
+
+<div class="row" data-path="all" data-priority="important" data-status="no" onclick="toggle(this)">
+<div><span class="mname">Explainability Score (EU AI Act)</span><div class="detail-panel" style="display:none"><strong>What:</strong> Can the reasoning be traced back to a specific document page, clause number, or declarative statement? Regulators and the EU AI Act (Article 13) require decisions to be explainable.<br><strong>Why it matters here:</strong> AXA's compliance decisions have regulatory downstream effects. "The AI said non-compliant" is not acceptable — the specific page and clause must be traceable.<br><strong>To implement:</strong> Audit the source_files + source_page fields in the verdict dict. Completeness rate: % of verdicts with a non-null, non-empty source citation.<br><strong>Target:</strong> 100% on document_required rows. For oral rows, the rep's tag + comments must be quoted directly in the reasoning.</div></div>
+<div class="mdesc">Can every verdict be traced to a specific source? (EU AI Act)</div>
+<span class="badge b-imp">important</span>
+<span class="badge b-no">missing</span>
+<span class="path-pill p-all">all paths</span>
+</div>
+
+</div>
+
+<div style="margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid var(--color-border-tertiary);display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+<span style="font-size:12px;color:var(--color-text-tertiary)">Legend:</span>
+<span class="badge b-crit">critical</span>
+<span style="font-size:12px;color:var(--color-text-tertiary)">production blocker</span>
+<span class="badge b-imp">important</span>
+<span style="font-size:12px;color:var(--color-text-tertiary)">next sprint</span>
+<span class="badge b-nice">nice to have</span>
+<span style="font-size:12px;color:var(--color-text-tertiary)">later</span>
+<span style="margin-left:8px;font-size:12px;color:var(--color-text-tertiary)">|</span>
+<span class="badge b-yes">done</span>
+<span class="badge b-part">partial</span>
+<span class="badge b-no">missing</span>
+</div>
+
+</div>
+
+<script>
+function toggle(row){
+  const panel=row.querySelector('.detail-panel');
+  if(!panel)return;
+  panel.style.display=panel.style.display==='none'?'block':'none';
+}
+function filter(type,btn){
+  document.querySelectorAll('.filt').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#rows .row').forEach(row=>{
+    const path=row.dataset.path;
+    const priority=row.dataset.priority;
+    const status=row.dataset.status;
+    let show=true;
+    if(type==='doc') show=path==='doc'||path==='all';
+    else if(type==='oral') show=path==='oral'||path==='all';
+    else if(type==='missing') show=status==='no';
+    else if(type==='critical') show=priority==='critical';
+    row.classList.toggle('hidden',!show);
+  });
+}
+</script>
